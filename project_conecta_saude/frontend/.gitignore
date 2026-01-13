@@ -1,0 +1,21 @@
+# Node
+node_modules/
+.pnpm-store/
+dist/
+build/
+.vite/
+*.log
+
+# Env
+.env
+.env.local
+.env.development
+.env.production
+
+# Editor
+.vscode/
+.idea/
+
+# System
+.DS_Store
+Thumbs.db

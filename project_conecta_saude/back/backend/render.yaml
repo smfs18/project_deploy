@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: conecta-saude-api
+    env: docker
+    region: sa-east-1
+    plan: free
+    
+    # Configuração do Docker
+    dockerfilePath: ./back/backend/Dockerfile
+    
+    # Health Check
+    healthCheckPath: /health
+    
+    # Variáveis de Ambiente
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: DEBUG
+        value: "false"
+      - key: CORS_ORIGINS
+        value: https://conecta-saude-frontend.onrender.com
+      - key: PORT
+        value: "8000"
+      - key: ML_SERVICE_URL
+        sync: false
+      - key: LLM_SERVICE_URL
+        sync: false
+    
+    # Build e Deploy
+    buildFilter:
+      paths:
+        - back/backend/**
+    
+    # Recursos
+    plan: free

@@ -1,0 +1,417 @@
+// src/utils/kmeans.test.ts
+// Testes unitários para o algoritmo K-means
+// 
+// Para executar os testes, primeiro instale o vitest:
+// npm install -D vitest @vitest/ui
+// 
+// Depois adicione no package.json:
+// "scripts": {
+//   "test": "vitest",
+//   "test:ui": "vitest --ui"
+// }
+//
+// Execute com: npm run test
+
+import { describe, it, expect } from 'vitest';
+import {
+  kMeans,
+  calculateClusterRadius,
+  suggestOptimalK,
+  calculateWCSS,
+  Point,
+  Cluster,
+} from './kmeans';
+
+describe('K-means Algorithm', () => {
+  describe('kMeans', () => {
+    it('should create k clusters', () => {
+      const points: Point[] = [
+        { id: 1, latitude: 0, longitude: 0 },
+        { id: 2, latitude: 1, longitude: 1 },
+        { id: 3, latitude: 10, longitude: 10 },
+        { id: 4, latitude: 11, longitude: 11 },
+      ];
+
+      const clusters = kMeans(points, 2);
+      expect(clusters).toHaveLength(2);
+    });
+
+    it('should assign all points to clusters', () => {
+      const points: Point[] = [
+        { id: 1, latitude: 0, longitude: 0 },
+        { id: 2, latitude: 1, longitude: 1 },
+        { id: 3, latitude: 10, longitude: 10 },
+      ];
+
+      const clusters = kMeans(points, 2);
+      const totalPoints = clusters.reduce((sum, cluster) => sum + cluster.points.length, 0);
+      expect(totalPoints).toBe(points.length);
+    });
+
+    it('should handle k greater than number of points', () => {
+      const points: Point[] = [
+        { id: 1, latitude: 0, longitude: 0 },
+        { id: 2, latitude: 1, longitude: 1 },
+      ];
+
+      const clusters = kMeans(points, 5);
+      expect(clusters.length).toBeLessThanOrEqual(points.length);
+    });
+
+    it('should return empty array for empty input', () => {
+      const clusters = kMeans([], 3);
+      expect(clusters).toHaveLength(0);
+    });
+
+    it('should group nearby points together', () => {
+      const points: Point[] = [
+        // Grupo 1: próximos de (0, 0)
+        { id: 1, latitude: 0, longitude: 0 },
+        { id: 2, latitude: 0.1, longitude: 0.1 },
+        { id: 3, latitude: -0.1, longitude: 0.1 },
+        // Grupo 2: próximos de (10, 10)
+        { id: 4, latitude: 10, longitude: 10 },
+        { id: 5, latitude: 10.1, longitude: 10.1 },
+        { id: 6, latitude: 9.9, longitude: 10.1 },
+      ];
+
+      const clusters = kMeans(points, 2);
+      
+      // Verificar se os pontos próximos estão no mesmo cluster
+      const cluster1Points = clusters[0].points.map(p => p.id);
+      const cluster2Points = clusters[1].points.map(p => p.id);
+
+      const group1InSameCluster = 
+        (cluster1Points.includes(1) && cluster1Points.includes(2) && cluster1Points.includes(3)) ||
+        (cluster2Points.includes(1) && cluster2Points.includes(2) && cluster2Points.includes(3));
+
+      expect(group1InSameCluster).toBe(true);
+    });
+
+    it('should have unique cluster IDs', () => {
+      const points: Point[] = [
+        { id: 1, latitude: 0, longitude: 0 },
+        { id: 2, latitude: 1, longitude: 1 },
+        { id: 3, latitude: 2, longitude: 2 },
+      ];
+
+      const clusters = kMeans(points, 3);
+      const ids = clusters.map(c => c.id);
+      const uniqueIds = new Set(ids);
+      expect(uniqueIds.size).toBe(clusters.length);
+    });
+
+    it('should assign colors to clusters', () => {
+      const points: Point[] = [
+        { id: 1, latitude: 0, longitude: 0 },
+        { id: 2, latitude: 1, longitude: 1 },
+      ];
+
+      const clusters = kMeans(points, 2);
+      clusters.forEach(cluster => {
+        expect(cluster.color).toBeDefined();
+        expect(cluster.color).toMatch(/^#[0-9A-F]{6}$/i);
+      });
+    });
+
+    it('should calculate valid centroids', () => {
+      const points: Point[] = [
+        { id: 1, latitude: 0, longitude: 0 },
+        { id: 2, latitude: 4, longitude: 4 },
+      ];
+
+      const clusters = kMeans(points, 1);
+      const centroid = clusters[0].centroid;
+
+      // Centroide deve estar entre os pontos
+      expect(centroid.latitude).toBeGreaterThanOrEqual(0);
+      expect(centroid.latitude).toBeLessThanOrEqual(4);
+      expect(centroid.longitude).toBeGreaterThanOrEqual(0);
+      expect(centroid.longitude).toBeLessThanOrEqual(4);
+    });
+  });
+
+  describe('calculateClusterRadius', () => {
+    it('should calculate radius for cluster', () => {
+      const cluster: Cluster = {
+        id: 0,
+        centroid: { latitude: 0, longitude: 0 },
+        points: [
+          { id: 1, latitude: 1, longitude: 1 },
+          { id: 2, latitude: -1, longitude: -1 },
+        ],
+        color: '#FF0000',
+      };
+
+      const radius = calculateClusterRadius(cluster);
+      expect(radius).toBeGreaterThan(0);
+    });
+
+    it('should return minimum radius for empty cluster', () => {
+      const cluster: Cluster = {
+        id: 0,
+        centroid: { latitude: 0, longitude: 0 },
+        points: [],
+        color: '#FF0000',
+      };
+
+      const radius = calculateClusterRadius(cluster);
+      expect(radius).toBe(0.001);
+    });
+
+    it('should return larger radius for dispersed points', () => {
+      const compactCluster: Cluster = {
+        id: 0,
+        centroid: { latitude: 0, longitude: 0 },
+        points: [
+          { id: 1, latitude: 0.1, longitude: 0.1 },
+          { id: 2, latitude: -0.1, longitude: -0.1 },
+        ],
+        color: '#FF0000',
+      };
+
+      const dispersedCluster: Cluster = {
+        id: 1,
+        centroid: { latitude: 0, longitude: 0 },
+        points: [
+          { id: 3, latitude: 5, longitude: 5 },
+          { id: 4, latitude: -5, longitude: -5 },
+        ],
+        color: '#00FF00',
+      };
+
+      const compactRadius = calculateClusterRadius(compactCluster);
+      const dispersedRadius = calculateClusterRadius(dispersedCluster);
+
+      expect(dispersedRadius).toBeGreaterThan(compactRadius);
+    });
+  });
+
+  describe('calculateWCSS', () => {
+    it('should calculate WCSS', () => {
+      const points: Point[] = [
+        { id: 1, latitude: 0, longitude: 0 },
+        { id: 2, latitude: 1, longitude: 1 },
+        { id: 3, latitude: 10, longitude: 10 },
+      ];
+
+      const wcss = calculateWCSS(points, 2);
+      expect(wcss).toBeGreaterThan(0);
+    });
+
+    it('should have lower WCSS with more clusters', () => {
+      const points: Point[] = [
+        { id: 1, latitude: 0, longitude: 0 },
+        { id: 2, latitude: 1, longitude: 1 },
+        { id: 3, latitude: 2, longitude: 2 },
+        { id: 4, latitude: 10, longitude: 10 },
+        { id: 5, latitude: 11, longitude: 11 },
+      ];
+
+      const wcss2 = calculateWCSS(points, 2);
+      const wcss3 = calculateWCSS(points, 3);
+
+      expect(wcss3).toBeLessThan(wcss2);
+    });
+
+    it('should return 0 WCSS when k equals number of points', () => {
+      const points: Point[] = [
+        { id: 1, latitude: 0, longitude: 0 },
+        { id: 2, latitude: 1, longitude: 1 },
+      ];
+
+      const wcss = calculateWCSS(points, 2);
+      expect(wcss).toBe(0);
+    });
+  });
+
+  describe('suggestOptimalK', () => {
+    it('should suggest k between 1 and maxK', () => {
+      const points: Point[] = Array.from({ length: 20 }, (_, i) => ({
+        id: i,
+        latitude: Math.random() * 10,
+        longitude: Math.random() * 10,
+      }));
+
+      const suggestedK = suggestOptimalK(points, 10);
+      expect(suggestedK).toBeGreaterThanOrEqual(1);
+      expect(suggestedK).toBeLessThanOrEqual(10);
+    });
+
+    it('should suggest 1 for very few points', () => {
+      const points: Point[] = [
+        { id: 1, latitude: 0, longitude: 0 },
+      ];
+
+      const suggestedK = suggestOptimalK(points);
+      expect(suggestedK).toBe(1);
+    });
+
+    it('should suggest reasonable k for clustered data', () => {
+      // Criar 3 grupos distintos
+      const points: Point[] = [];
+      let id = 0;
+
+      // Grupo 1: ao redor de (0, 0)
+      for (let i = 0; i < 10; i++) {
+        points.push({
+          id: id++,
+          latitude: Math.random() * 2,
+          longitude: Math.random() * 2,
+        });
+      }
+
+      // Grupo 2: ao redor de (10, 10)
+      for (let i = 0; i < 10; i++) {
+        points.push({
+          id: id++,
+          latitude: 10 + Math.random() * 2,
+          longitude: 10 + Math.random() * 2,
+        });
+      }
+
+      // Grupo 3: ao redor de (20, 20)
+      for (let i = 0; i < 10; i++) {
+        points.push({
+          id: id++,
+          latitude: 20 + Math.random() * 2,
+          longitude: 20 + Math.random() * 2,
+        });
+      }
+
+      const suggestedK = suggestOptimalK(points, 10);
+      
+      // Deve sugerir algo próximo de 3
+      expect(suggestedK).toBeGreaterThanOrEqual(2);
+      expect(suggestedK).toBeLessThanOrEqual(5);
+    });
+
+    it('should handle maxK larger than points', () => {
+      const points: Point[] = [
+        { id: 1, latitude: 0, longitude: 0 },
+        { id: 2, latitude: 1, longitude: 1 },
+      ];
+
+      const suggestedK = suggestOptimalK(points, 100);
+      expect(suggestedK).toBeLessThanOrEqual(points.length);
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('should handle points with identical coordinates', () => {
+      const points: Point[] = [
+        { id: 1, latitude: 5, longitude: 5 },
+        { id: 2, latitude: 5, longitude: 5 },
+        { id: 3, latitude: 5, longitude: 5 },
+      ];
+
+      const clusters = kMeans(points, 2);
+      expect(clusters.length).toBeGreaterThan(0);
+    });
+
+    it('should handle negative coordinates', () => {
+      const points: Point[] = [
+        { id: 1, latitude: -10, longitude: -10 },
+        { id: 2, latitude: -5, longitude: -5 },
+        { id: 3, latitude: 5, longitude: 5 },
+      ];
+
+      const clusters = kMeans(points, 2);
+      expect(clusters).toHaveLength(2);
+    });
+
+    it('should handle very large coordinate values', () => {
+      const points: Point[] = [
+        { id: 1, latitude: 1000000, longitude: 1000000 },
+        { id: 2, latitude: 1000001, longitude: 1000001 },
+        { id: 3, latitude: 2000000, longitude: 2000000 },
+      ];
+
+      const clusters = kMeans(points, 2);
+      expect(clusters).toHaveLength(2);
+    });
+
+    it('should be deterministic with same initialization', () => {
+      const points: Point[] = [
+        { id: 1, latitude: 0, longitude: 0 },
+        { id: 2, latitude: 1, longitude: 1 },
+        { id: 3, latitude: 10, longitude: 10 },
+        { id: 4, latitude: 11, longitude: 11 },
+      ];
+
+      // Note: K-means++ usa randomização, então os resultados podem variar
+      // Este teste verifica que o algoritmo completa sem erros
+      const clusters1 = kMeans(points, 2);
+      const clusters2 = kMeans(points, 2);
+
+      expect(clusters1).toHaveLength(2);
+      expect(clusters2).toHaveLength(2);
+    });
+  });
+
+  describe('Performance', () => {
+    it('should complete in reasonable time for 100 points', () => {
+      const points: Point[] = Array.from({ length: 100 }, (_, i) => ({
+        id: i,
+        latitude: Math.random() * 100,
+        longitude: Math.random() * 100,
+      }));
+
+      const startTime = Date.now();
+      kMeans(points, 5);
+      const duration = Date.now() - startTime;
+
+      // Deve completar em menos de 1 segundo
+      expect(duration).toBeLessThan(1000);
+    });
+
+    it('should handle 1000 points', () => {
+      const points: Point[] = Array.from({ length: 1000 }, (_, i) => ({
+        id: i,
+        latitude: Math.random() * 100,
+        longitude: Math.random() * 100,
+      }));
+
+      const clusters = kMeans(points, 10, 50); // Limitar iterações
+      expect(clusters).toHaveLength(10);
+    });
+  });
+
+  describe('Data Quality', () => {
+    it('should assign each point to exactly one cluster', () => {
+      const points: Point[] = Array.from({ length: 20 }, (_, i) => ({
+        id: i,
+        latitude: Math.random() * 10,
+        longitude: Math.random() * 10,
+      }));
+
+      const clusters = kMeans(points, 3);
+      
+      const allPointIds = new Set<number>();
+      clusters.forEach(cluster => {
+        cluster.points.forEach(point => {
+          expect(allPointIds.has(point.id)).toBe(false); // Não deve ter duplicatas
+          allPointIds.add(point.id);
+        });
+      });
+
+      expect(allPointIds.size).toBe(points.length);
+    });
+
+    it('should have centroid within reasonable bounds of points', () => {
+      const points: Point[] = [
+        { id: 1, latitude: 0, longitude: 0 },
+        { id: 2, latitude: 10, longitude: 10 },
+        { id: 3, latitude: 5, longitude: 5 },
+      ];
+
+      const clusters = kMeans(points, 1);
+      const centroid = clusters[0].centroid;
+
+      expect(centroid.latitude).toBeGreaterThanOrEqual(-1);
+      expect(centroid.latitude).toBeLessThanOrEqual(11);
+      expect(centroid.longitude).toBeGreaterThanOrEqual(-1);
+      expect(centroid.longitude).toBeLessThanOrEqual(11);
+    });
+  });
+});

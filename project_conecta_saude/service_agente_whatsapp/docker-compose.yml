@@ -1,0 +1,32 @@
+# Docker Compose para desenvolvimento local
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: whatsapp_agent_mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: whatsapp_agent_db
+
+  whatsapp_agent:
+    build: .
+    container_name: whatsapp_agent_service
+    ports:
+      - "8002:8002"
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - MONGO_URI=mongodb://mongodb:27017/
+      - MONGO_DB_NAME=whatsapp_agent_db
+      - BACKEND_URL=${BACKEND_URL:-http://host.docker.internal:8000/api/v1}
+    depends_on:
+      - mongodb
+    volumes:
+      - ./app:/app/app
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:

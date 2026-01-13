@@ -1,0 +1,35 @@
+# --- Framework ---
+fastapi
+uvicorn[standard]
+
+# --- Banco de Dados ---
+sqlalchemy
+psycopg2-binary
+alembic
+
+# --- LangGraph & IA ---
+langgraph
+langchain
+langchain-google-genai
+google-generativeai
+
+# --- Processamento de Áudio ---
+librosa
+numpy
+scipy
+pydub
+
+# --- Comunicação HTTP ---
+httpx
+requests
+
+# --- Configuração ---
+pydantic-settings
+python-dotenv
+
+# --- Validação ---
+pydantic[email]
+
+# --- Utilitários ---
+python-multipart
+python-jose[cryptography]

@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # Banco de dados PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: conecta_audio_postgres
+    environment:
+      POSTGRES_USER: conecta_user
+      POSTGRES_PASSWORD: conecta_password
+      POSTGRES_DB: conecta_saude_audio
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U conecta_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Serviço de processamento de áudio
+  audio_service:
+    build: .
+    container_name: conecta_audio_service
+    environment:
+      DATABASE_URL: postgresql://conecta_user:conecta_password@postgres:5432/conecta_saude_audio
+      DATABASE_ECHO: "False"
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      BACKEND_URL: http://backend:8000
+      FRONTEND_URL: http://localhost:3000
+      APPCONECTA_URL: http://localhost:3001
+      API_PORT: 8003
+      DEBUG: "True"
+    ports:
+      - "8003:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+      - /tmp:/tmp
+    command: python main.py
+
+volumes:
+  postgres_data:
+    driver: local
