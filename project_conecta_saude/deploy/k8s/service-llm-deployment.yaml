@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-llm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service-llm
+  template:
+    metadata:
+      labels:
+        app: service-llm
+    spec:
+      containers:
+        - name: service-llm
+          image: conecta/service-llm:latest
+          ports:
+            - containerPort: 8001
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-llm
+spec:
+  selector:
+    app: service-llm
+  ports:
+    - protocol: TCP
+      port: 8001
+      targetPort: 8001
+  type: ClusterIP

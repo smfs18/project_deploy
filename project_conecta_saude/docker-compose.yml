@@ -1,0 +1,260 @@
+version: '3.8'
+
+# ====================================================
+# ESTRATÉGIA DE DEPLOYMENT: Otimização Radical
+# - Limites rigorosos de memória para 2GB RAM
+# - URLs internas usando nomes dos serviços
+# - Variáveis de ambiente centralizadas
+# ====================================================
+
+services:
+  # ====== DATABASE ======
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    container_name: conecta-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: conecta
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  # ====== CACHE ======
+  redis:
+    image: redis:7-alpine
+    container_name: conecta-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    command: redis-server --maxmemory 64m --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+        reservations:
+          memory: 32M
+
+  # ====== BACKEND API ======
+  backend:
+    build:
+      context: ./back/backend
+      dockerfile: Dockerfile
+    container_name: conecta-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # DATABASE - usar Supabase em produção
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/conecta}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DEBUG: ${DEBUG:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      
+      # MICROSSERVIÇOS (nomes dos serviços no Docker)
+      ML_SERVICE_URL: http://model-llm:8002/classify
+      LLM_SERVICE_URL: http://service_llm:8001/generate-actions
+      AUDIO_SERVICE_URL: http://service_agente_audio_sumarizado:8003
+      
+      # REDIS
+      REDIS_URL: redis://redis:6379/0
+      
+      # CORS
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173}
+    ports:
+      - '8082:8000'
+    volumes:
+      - ./back/backend:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 350M
+        reservations:
+          memory: 256M
+
+  # ====== MODEL LLM (Classificação) ======
+  model-llm:
+    build:
+      context: ./model-LLM
+      dockerfile: Dockerfile
+    container_name: conecta-model-llm
+    restart: unless-stopped
+    environment:
+      PYTHONUNBUFFERED: "1"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - '8001:8002'
+    volumes:
+      - ./model-LLM:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 192M
+
+  # ====== SERVICE LLM (RAG + FAISS) ======
+  service_llm:
+    build:
+      context: ./service_llm
+      dockerfile: Dockerfile
+    container_name: conecta-service-llm
+    restart: unless-stopped
+    environment:
+      PYTHONUNBUFFERED: "1"
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - '8003:8001'
+    volumes:
+      - ./service_llm:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 384M
+
+  # ====== WHATSAPP AGENT ======
+  whatsapp-agent:
+    build:
+      context: ./service_agente_whatsapp
+      dockerfile: Dockerfile
+    container_name: conecta-whatsapp-agent
+    restart: unless-stopped
+    environment:
+      BACKEND_API_URL: http://backend:8000
+      BACKEND_API_KEY: ${BACKEND_API_KEY:-changeme}
+      REDIS_URL: redis://redis:6379/0
+      PYTHONUNBUFFERED: "1"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - '8002:8001'
+    depends_on:
+      - backend
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 192M
+
+  # ====== AUDIO SUMARIZADO (TRANSCRIÇÃO + SUMARIZAÇÃO) ======
+  service_agente_audio_sumarizado:
+    build:
+      context: ./service_agente_audio_sumarizado
+      dockerfile: Dockerfile
+    container_name: conecta-audio-sumarizado
+    restart: unless-stopped
+    environment:
+      BACKEND_API_URL: http://backend:8000
+      BACKEND_API_KEY: ${BACKEND_API_KEY:-changeme}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/conecta}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      PYTHONUNBUFFERED: "1"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - '8004:8003'
+    depends_on:
+      - backend
+      - postgres
+    volumes:
+      - ./service_agente_audio_sumarizado:/app
+      - audio_uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 350M
+        reservations:
+          memory: 256M
+
+  # ====== FRONTEND (REACT/VITE) ======
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: conecta-frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8082}
+      VITE_SUPABASE_URL: ${SUPABASE_URL:-}
+      VITE_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+    ports:
+      - '5173:80'
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+volumes:
+  pgdata:
+    driver: local
+  audio_uploads:
+    driver: local
+
+networks:
+  default:
+    name: conecta-network
+    driver: bridge
