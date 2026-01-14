@@ -1,8 +1,12 @@
 // src/services/api.ts
 // (NENHUMA ALTERAÇÃO NECESSÁRIA)
+import axios from 'axios';
+const API_BASE = import.meta.env.VITE_API_URL || "http://165.227.186.94:8082";
 
-const API_BASE = "http://localhost:8082";
-
+export const api = axios.create({
+  baseURL: API_BASE,
+});
+console.log("🔥 VITE_API_URL =", import.meta.env.VITE_API_URL);
 // Função para headers com autenticação
 const getAuthHeaders = () => {
   const token = localStorage.getItem("token");

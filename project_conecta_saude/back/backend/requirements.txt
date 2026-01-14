@@ -20,3 +20,6 @@ pydantic-settings         # Para carregar configurações do .env
 
 # --- Outros ---
 pydantic[email]           # Para validação de dados e emails
+
+passlib[bcrypt]
+bcrypt==3.2.0

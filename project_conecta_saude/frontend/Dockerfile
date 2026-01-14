@@ -6,7 +6,8 @@
 FROM node:18-alpine as builder
 
 WORKDIR /app
-
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
 # Copiar package files
 COPY package*.json ./
 COPY tsconfig*.json ./
@@ -17,7 +18,7 @@ RUN npm ci --prefer-offline --no-audit
 
 # Copiar código-fonte
 COPY src ./src
-COPY public ./public
+#COPY public ./public
 COPY index.html ./
 
 # Build da aplicação

@@ -1,10 +1,9 @@
 # ============================================================================
-# SERVICE LLM - Otimizado para produção com FAISS (Vector Store + RAG)
-# Nota: Usar python:3.11-slim pois Alpine quebra com FAISS/MiniLM
+# SERVICE LLM - Produção (FAISS + RAG)
 # ============================================================================
 
-# STAGE 1: Builder (compile dependencies)
-FROM python:3.11-slim as builder
+# STAGE 1: Builder
+FROM python:3.11-slim AS builder
 
 WORKDIR /build
 
@@ -14,28 +13,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --user --no-cache-dir --no-warn-script-location -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# STAGE 2: Runtime (imagem mínima)
+
+# STAGE 2: Runtime
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Instalar APENAS libgomp1 (necessário para FAISS em runtime)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copiar bibliotecas Python instaladas do builder
-COPY --from=builder /root/.local /root/.local
+# Copiar dependências Python
+COPY --from=builder /usr/local /usr/local
 
-# Copiar código
+# Copiar aplicação
 COPY . /app
 
-# Ajustar PATH
-ENV PATH=/root/.local/bin:$PATH \
-    PYTHONUNBUFFERED=1 \
+ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
 EXPOSE 8001
@@ -44,3 +41,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8001/health || exit 1
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "1"]
+
