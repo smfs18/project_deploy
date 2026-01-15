@@ -5,10 +5,11 @@ Script de exemplo para testar o Service Agente WhatsApp localmente.
 
 import requests
 import json
+import os
 from datetime import datetime
 
 # Configuração
-BASE_URL = "http://localhost:8002/api/v1"
+BASE_URL = os.getenv("WHATSAPP_AGENT_URL", "http://localhost:8002/api/v1")
 SESSION_ID = f"test_session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
 def print_separator():

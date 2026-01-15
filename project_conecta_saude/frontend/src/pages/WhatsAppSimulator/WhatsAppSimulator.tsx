@@ -100,7 +100,8 @@ const WhatsAppSimulator: React.FC = () => {
       const token = localStorage.getItem('token');
       
       // Chamada para o serviço do agente
-      const response = await fetch('http://localhost:8002/api/v1/chat', {
+      const whatsappAgentUrl = import.meta.env.VITE_WHATSAPP_AGENT_URL;
+      const response = await fetch(`${whatsappAgentUrl}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -141,7 +142,7 @@ const WhatsAppSimulator: React.FC = () => {
       
       const errorMessage: Message = {
         id: `error_${Date.now()}`,
-        text: 'Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, verifique se o serviço do agente está rodando (http://localhost:8002).',
+        text: 'Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, verifique se o serviço do agente está rodando.',
         sender: 'bot',
         timestamp: new Date(),
       };

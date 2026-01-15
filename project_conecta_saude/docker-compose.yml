@@ -134,7 +134,9 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - VITE_API_URL=http://165.227.186.94:8082
+        - VITE_API_URL=http://backend:8000
+        - VITE_WHATSAPP_AGENT_URL=http://service_agente_whatsapp:8001/api/v1
+        - VITE_AUDIO_AGENT_URL=http://service_agente_audio_sumarizado:8003/api/v1
     container_name: conecta-frontend
     restart: unless-stopped
     env_file: .env

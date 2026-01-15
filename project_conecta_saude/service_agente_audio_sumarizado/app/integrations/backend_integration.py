@@ -4,6 +4,7 @@ Exemplo de integração com o Backend Principal
 
 import httpx
 import asyncio
+import os
 from datetime import datetime
 
 class BackendIntegration:
@@ -114,7 +115,7 @@ async def example():
     """Exemplo de como usar a integração."""
     
     backend = BackendIntegration(
-        backend_url="http://localhost:8082",
+        backend_url=os.getenv("BACKEND_API_URL", "http://backend:8000"),
     )
     
     # Enviar sumarização

@@ -4,6 +4,7 @@ Exemplo de integração com o Aplicativo (appconecta)
 
 import httpx
 import asyncio
+import os
 from datetime import datetime
 from typing import Dict, Any
 
@@ -123,7 +124,7 @@ async def example():
     """Exemplo de como usar a integração."""
     
     app = AppConectaIntegration(
-        app_url="http://localhost:3001",
+        app_url=os.getenv("APP_CONECTA_URL", "http://app-conecta:3001"),
         api_key="app-api-key"
     )
     

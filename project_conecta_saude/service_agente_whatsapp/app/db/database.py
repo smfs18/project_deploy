@@ -11,7 +11,7 @@ class Database:
     Armazena: conversas, dados coletados, status de emergência.
     """
     def __init__(self):
-        mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
+        mongo_uri = os.getenv("MONGO_URI", "mongodb://mongo:27017/")
         database_name = os.getenv("MONGO_DB_NAME", "whatsapp_agent_db")
         
         self.client = MongoClient(mongo_uri)

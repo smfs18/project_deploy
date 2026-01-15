@@ -11,7 +11,7 @@ class BackendClient:
     Cliente para comunicação com o backend (FastAPI) para operações CRUD de pacientes.
     """
     def __init__(self):
-        self.base_url = os.getenv("BACKEND_URL", "http://localhost:8000/api/v1")
+        self.base_url = os.getenv("BACKEND_URL", "http://backend:8000/api/v1")
         self.timeout = 30.0
     
     async def get_patient_by_email(self, email: str, token: str) -> Optional[Dict[str, Any]]:

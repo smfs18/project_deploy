@@ -6,10 +6,11 @@ Script para testes locais da API
 import asyncio
 import httpx
 import json
+import os
 from pathlib import Path
 
 # Configuração
-BASE_URL = "http://localhost:8003/api/v1"
+BASE_URL = os.getenv("AUDIO_AGENT_URL", "http://localhost:8003/api/v1")
 AGENT_ID = "health_agent_001"
 PATIENT_ID = "patient_12345"
 
