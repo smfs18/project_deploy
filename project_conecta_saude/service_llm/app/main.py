@@ -69,3 +69,10 @@ async def generate_actions(
 @app.get("/")
 def health_check():
     return {"status": "ok", "service": "LLM Agent"}
+@app.get("/health")
+def health():
+    return {
+        "status": "ok",
+        "service": "llm-agent",
+        "rag": "ready"
+    }

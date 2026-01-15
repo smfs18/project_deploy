@@ -1,6 +1,6 @@
 from fastapi import FastAPI
-from schemas import PatientData, ClassificationResponse
-from model import model_instance
+from app.schemas import PatientData, ClassificationResponse
+from app.model import model_instance
 
 app = FastAPI(
     title="Conecta+Saúde - Serviço de Classificação",

@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from joblib import load
 from pathlib import Path
-from schemas import PatientData 
+from app.schemas import PatientData 
 from typing import Tuple
 
 # --- Caminho do Modelo ---
